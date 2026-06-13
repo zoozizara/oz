@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OZ — The AI Copilot for Commercial Solar Deployment</title>
+<link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><polygon points="12,1 14.6,8.6 22.6,8.8 16.2,13.7 18.5,21.4 12,16.8 5.5,21.4 7.8,13.7 1.4,8.8 9.4,8.6" fill="%2338D39F"/></svg>'>
+<style>
+:root{
+  --bg:#071C15; --primary:#0B3D2E; --secondary:#145A43; --accent:#38D39F;
+  --mint:#BFEBD8; --ink:#04150F; --text:#F7F8F7; --muted:#8FB4A4; --amber:#E9B44C;
+  --card:rgba(11,61,46,.45); --line:rgba(56,211,159,.16); --line2:rgba(56,211,159,.32);
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text); font-family:var(--sans);
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1100px 700px at 78% -10%, rgba(56,211,159,.09), transparent 60%),
+    radial-gradient(900px 600px at 8% 110%, rgba(20,90,67,.35), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(191,235,216,.025) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(90deg, rgba(191,235,216,.025) 0 1px, transparent 1px 72px);
+}
+::selection{background:var(--accent);color:var(--ink)}
+
+/* ---------- deck & transitions ---------- */
+.deck{position:fixed;inset:0}
+.slide{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:clamp(18px,4.5vw,64px) clamp(18px,5vw,72px);
+  opacity:0;visibility:hidden;transform:translateX(7vw) scale(.975);
+  transition:opacity .6s var(--ease),transform .6s var(--ease),visibility 0s linear .6s;
+}
+.slide.active{opacity:1;visibility:visible;transform:none;z-index:2;
+  transition:opacity .6s var(--ease),transform .6s var(--ease)}
+.slide.is-prev{transform:translateX(-7vw) scale(.975)}
+.wrap{width:min(1180px,100%);position:relative;z-index:2}
+
+.slide [data-a]{opacity:0;transform:translateY(26px);
+  transition:opacity .6s ease,transform .7s var(--ease);transition-delay:calc(var(--d,0)*1s)}
+.slide.active [data-a]{opacity:1;transform:none}
+
+.ghost{position:absolute;right:2vw;bottom:-3vh;font-weight:800;font-size:clamp(160px,30vw,420px);
+  letter-spacing:-.05em;color:transparent;-webkit-text-stroke:1.5px rgba(56,211,159,.10);
+  user-select:none;pointer-events:none;line-height:1}
+
+/* ---------- recurring elements ---------- */
+.badge{position:absolute;top:clamp(14px,2.6vh,26px);right:clamp(16px,2.6vw,30px);z-index:3;
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);border:1px solid var(--line2);border-radius:999px;
+  padding:7px 14px;background:rgba(7,28,21,.7);backdrop-filter:blur(6px);white-space:nowrap}
+.badge b{color:var(--mint);font-weight:600}
+.kicker{display:flex;align-items:center;gap:14px;font-family:var(--mono);
+  font-size:clamp(11px,1.2vw,13px);letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+.kicker::before{content:"";width:34px;height:2px;flex:none;
+  background:linear-gradient(90deg,transparent,var(--accent));box-shadow:0 0 12px rgba(56,211,159,.8)}
+h1.display{font-size:clamp(40px,6.6vw,86px);line-height:1.02;letter-spacing:-.035em;font-weight:800;margin:18px 0 0}
+h2.display{font-size:clamp(30px,4.6vw,58px);line-height:1.05;letter-spacing:-.03em;font-weight:800;margin:16px 0 0}
+.display em{font-style:normal;color:var(--accent)}
+.lede{color:var(--muted);font-size:clamp(15px,1.6vw,19px);line-height:1.55;max-width:62ch}
+.mono{font-family:var(--mono)}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:clamp(16px,2vw,24px);backdrop-filter:blur(8px)}
+.card h3{font-size:clamp(15px,1.5vw,18px);letter-spacing:-.01em;margin-bottom:10px;display:flex;align-items:center;gap:9px}
+.card h3 .ic{width:10px;height:10px;border-radius:3px;background:var(--accent);
+  box-shadow:0 0 10px rgba(56,211,159,.7);flex:none}
+.card li{list-style:none;color:var(--muted);font-size:clamp(13px,1.35vw,15.5px);line-height:1.55;
+  padding-left:16px;position:relative;margin-top:6px}
+.card li::before{content:"";position:absolute;left:0;top:.62em;width:6px;height:2px;background:var(--accent)}
+
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{font-family:var(--mono);font-size:clamp(11px,1.15vw,13px);color:var(--mint);
+  border:1px solid var(--line);border-radius:999px;padding:8px 14px;background:rgba(7,28,21,.55)}
+.chip.hot{color:var(--ink);background:var(--accent);border-color:var(--accent);font-weight:700}
+
+.wiz{display:block;filter:drop-shadow(0 18px 40px rgba(0,0,0,.45))}
+.glowpulse{animation:pulse 2.6s ease-in-out infinite;transform-origin:30px 20px}
+@keyframes pulse{0%,100%{opacity:.22}50%{opacity:.5}}
+
+/* ---------- slide 1 ---------- */
+.hero{display:grid;grid-template-columns:.9fr 1.25fr;gap:clamp(24px,5vw,72px);align-items:center}
+.hero .herowiz{position:relative;display:flex;flex-direction:column;align-items:center}
+.hero .wiz{width:clamp(220px,28vw,400px);margin:0 auto;position:relative;z-index:2;
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.5));
+  /* hide the small panel baked into the mascot so the big hero panel reads as the only one */
+  clip-path:inset(0 0 22% 0)}
+.hero .heropanel{width:clamp(250px,33vw,460px);margin-top:-104px;position:relative;z-index:1;
+  filter:drop-shadow(0 14px 30px rgba(56,211,159,.34))}
+.heroTag{font-size:clamp(18px,2.3vw,28px);color:var(--mint);letter-spacing:-.015em;margin-top:14px;font-weight:500}
+.heroMeta{display:flex;gap:12px;align-items:center;margin-top:30px;flex-wrap:wrap}
+.hint{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:26px}
+.hint kbd{border:1px solid var(--line2);border-radius:6px;padding:2px 7px;color:var(--mint);font-family:inherit}
+
+/* ---------- slide 2 ---------- */
+.tri{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,1.6vw,20px);margin-top:clamp(20px,3.4vh,36px)}
+.punch{margin-top:clamp(18px,3vh,30px);font-size:clamp(16px,1.9vw,22px);color:var(--mint);font-weight:600}
+.punch b{color:var(--accent)}
+
+/* ---------- slide 3 ---------- */
+.matters{display:grid;grid-template-columns:auto 1fr;gap:clamp(24px,5vw,76px);align-items:center}
+.donut{width:clamp(170px,21vw,290px)}
+.donut .track{fill:none;stroke:rgba(191,235,216,.12);stroke-width:16}
+.donut .arc{fill:none;stroke:var(--accent);stroke-width:16;stroke-linecap:round;
+  stroke-dasharray:0 541;transition:stroke-dasharray 1.3s .45s var(--ease);
+  filter:drop-shadow(0 0 10px rgba(56,211,159,.6))}
+.slide.active .donut .arc{stroke-dasharray:27 514}
+.donut text{fill:var(--text);font-family:var(--sans);font-weight:800}
+.bignum{font-size:clamp(58px,9vw,124px);font-weight:800;letter-spacing:-.045em;line-height:.95;
+  color:var(--accent);text-shadow:0 0 44px rgba(56,211,159,.35)}
+.bignum span{font-size:.42em;color:var(--text);letter-spacing:-.02em}
+
+/* ---------- slide 4 ---------- */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,26px);margin-top:clamp(20px,3.4vh,34px)}
+.prompt{font-family:var(--mono);font-size:clamp(13px,1.5vw,17px);color:var(--mint);line-height:1.6;
+  border:1px solid var(--line2);border-radius:12px;padding:16px 18px;background:rgba(4,21,15,.7)}
+.prompt::before{content:"❯ ";color:var(--accent)}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:clamp(16px,2.6vh,26px)}
+.step{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:rgba(7,28,21,.55)}
+.step i{display:block;font-style:normal;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:.12em}
+.step span{font-size:clamp(10.5px,1.05vw,12.5px);color:var(--mint);line-height:1.3;display:block;margin-top:3px}
+
+/* ---------- slide 5: demo ---------- */
+.app{border:1px solid var(--line2);border-radius:18px;overflow:hidden;background:rgba(4,21,15,.82);
+  box-shadow:0 30px 80px rgba(0,0,0,.5);margin-top:clamp(16px,2.8vh,28px)}
+.appbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);
+  background:rgba(11,61,46,.5)}
+.appbar .dot{width:10px;height:10px;border-radius:50%;background:var(--secondary)}
+.appbar .dot:first-child{background:var(--accent)}
+.appbar .ttl{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:8px}
+.qbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.qbar .wiz{width:34px;flex:none;filter:none}
+.type{font-family:var(--mono);font-size:clamp(12px,1.45vw,16px);color:var(--text);
+  white-space:nowrap;overflow:hidden;width:0;border-right:2px solid var(--accent)}
+.slide.active .type{animation:typing 2.4s steps(71) .5s forwards,caret 1s step-end infinite}
+@keyframes typing{to{width:71ch}}
+@keyframes caret{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
+.tbl{width:100%;border-collapse:collapse;font-size:clamp(11.5px,1.3vw,14.5px)}
+.tbl th{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-align:left;padding:11px 16px;border-bottom:1px solid var(--line)}
+.tbl td{padding:11px 16px;border-bottom:1px solid rgba(56,211,159,.07);color:var(--mint)}
+.tbl td:first-child{font-family:var(--mono);color:var(--accent);font-weight:700}
+.tbl tr:hover td{background:rgba(56,211,159,.05)}
+.score{display:flex;align-items:center;gap:10px;font-family:var(--mono);color:var(--text)}
+.score .bar{width:clamp(50px,7vw,90px);height:6px;border-radius:3px;background:rgba(191,235,216,.12);overflow:hidden;flex:none}
+.score .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--secondary),var(--accent));
+  transition:width .9s var(--ease);transition-delay:calc(var(--d,0)*1s)}
+.slide.active .score .bar i{width:var(--w)}
+.appfoot{display:flex;justify-content:space-between;align-items:center;padding:11px 18px;
+  font-family:var(--mono);font-size:11px;color:var(--muted)}
+.appfoot .cta{color:var(--ink);background:var(--accent);border-radius:8px;padding:7px 14px;font-weight:700}
+
+/* ---------- slide 5: demo launch ---------- */
+.demolaunch{display:inline-flex;align-items:center;gap:18px;margin-top:clamp(24px,4vh,42px);
+  text-decoration:none;border:1px solid var(--line2);border-radius:18px;
+  padding:18px 26px 18px 20px;background:rgba(4,21,15,.82);box-shadow:0 24px 60px rgba(0,0,0,.45);
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s var(--ease)}
+.demolaunch:hover,.demolaunch:focus-visible{transform:translateY(-4px);border-color:var(--accent);
+  box-shadow:0 30px 70px rgba(0,0,0,.5),0 0 40px rgba(56,211,159,.25);outline:none}
+.demolaunch .wiz{width:clamp(56px,7vw,84px);flex:none;filter:none}
+.demolaunch .dl-txt{display:flex;flex-direction:column;text-align:left}
+.demolaunch .dl-txt i{font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--accent)}
+.demolaunch .dl-txt b{font-size:clamp(18px,2.2vw,26px);color:var(--text);letter-spacing:-.02em;margin-top:3px}
+.demolaunch .dl-go{width:46px;height:46px;flex:none;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;background:var(--accent);color:var(--ink);font-size:16px;
+  box-shadow:0 0 22px rgba(56,211,159,.5)}
+
+/* ---------- slide 6: pipeline ---------- */
+.pipe{margin-top:clamp(22px,3.6vh,38px);display:flex;flex-direction:column;gap:clamp(18px,3vh,30px)}
+.prow{display:flex;gap:clamp(8px,1vw,14px);align-items:stretch;position:relative}
+.prow::before{content:"";position:absolute;left:2%;right:2%;top:50%;height:2px;
+  background:linear-gradient(90deg,transparent,var(--line2),transparent);z-index:0}
+.prow .pulse{position:absolute;top:50%;left:0;width:54px;height:2px;margin-top:-1px;border-radius:2px;
+  background:linear-gradient(90deg,transparent,var(--accent));box-shadow:0 0 12px var(--accent);z-index:1;opacity:0}
+.slide.active .prow .pulse{animation:flow 3.2s linear infinite;opacity:1}
+.prow.rev .pulse{animation-direction:reverse}
+@keyframes flow{from{left:-6%}to{left:102%}}
+.node{position:relative;z-index:2;flex:1;border:1px solid var(--line);border-radius:12px;
+  background:rgba(7,28,21,.88);padding:11px 10px;text-align:center}
+.node i{display:block;font-style:normal;font-family:var(--mono);font-size:9.5px;color:var(--accent);letter-spacing:.16em}
+.node span{display:block;font-size:clamp(11px,1.15vw,14px);font-weight:600;color:var(--mint);margin-top:4px;line-height:1.25}
+.node.io{background:var(--primary);border-color:var(--line2)}
+.node.out{background:linear-gradient(135deg,var(--secondary),var(--primary));border-color:var(--accent);
+  box-shadow:0 0 26px rgba(56,211,159,.22)}
+.node.out span{color:var(--text)}
+.pipefoot{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:clamp(16px,2.6vh,26px);flex-wrap:wrap}
+.notbot{font-size:clamp(14px,1.6vw,18px);color:var(--mint);font-weight:600}
+.notbot b{color:var(--accent)}
+
+/* ---------- slide 6: 13-agent grid ---------- */
+.agentflow{margin-top:clamp(20px,3.4vh,34px)}
+.agrid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+.anode,.agrid .node{position:relative;border:1px solid var(--line);border-radius:11px;
+  background:rgba(7,28,21,.88);padding:10px 9px;text-align:center;min-height:62px;
+  display:flex;flex-direction:column;justify-content:center}
+.anode i,.agrid .node i{font-style:normal;font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:.14em}
+.anode span,.agrid .node span{font-size:clamp(10px,1.02vw,12.5px);font-weight:600;color:var(--mint);margin-top:4px;line-height:1.2}
+.agrid .node.io{background:var(--primary);border-color:var(--line2)}
+.agrid .node.out{background:linear-gradient(135deg,var(--secondary),var(--primary));border-color:var(--accent);
+  box-shadow:0 0 24px rgba(56,211,159,.22)}
+.agrid .node.out span{color:var(--text)}
+.anode.learn{background:linear-gradient(135deg,rgba(233,180,76,.22),rgba(7,28,21,.9));border-color:var(--amber)}
+.anode.learn i{color:var(--amber)}
+.anode.learn::after{content:"↺ teaches workflow";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;color:var(--amber);background:var(--bg);
+  padding:0 6px;white-space:nowrap}
+.anode.audit{border-color:var(--line2);box-shadow:0 0 18px rgba(56,211,159,.14) inset}
+.loopnote{margin-top:18px;display:flex;align-items:flex-start;gap:10px;
+  font-size:clamp(12px,1.35vw,15px);color:var(--mint);line-height:1.5;
+  border:1px dashed var(--amber);border-radius:12px;padding:12px 16px;background:rgba(233,180,76,.06)}
+.loopnote b{color:var(--accent)}
+.loopnote .loopdot{flex:none;width:11px;height:11px;border-radius:50%;margin-top:4px;
+  background:var(--amber);box-shadow:0 0 12px rgba(233,180,76,.7)}
+
+/* ---------- slide 7: architecture ---------- */
+.arch{display:flex;flex-direction:column;gap:10px;margin-top:clamp(18px,3vh,30px)}
+.layer{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center;
+  border:1px solid var(--line);border-radius:14px;padding:12px 16px;background:var(--card)}
+.layer .lt{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase}
+.layer .chips{gap:8px}
+.layer .chip{padding:6px 11px;font-size:clamp(10.5px,1.05vw,12.5px)}
+.darr{text-align:center;color:var(--accent);font-size:15px;line-height:.6;opacity:.85}
+.archnote{margin-top:clamp(14px,2.4vh,22px)}
+
+/* ---------- slide 8: comparison ---------- */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,26px);margin-top:clamp(20px,3.4vh,34px)}
+.vs .card.bad h3 .ic{background:var(--muted);box-shadow:none}
+.vs .card.bad li::before{content:"✕";background:none;color:var(--muted);top:.1em;font-size:11px}
+.vs .card.good{border-color:var(--line2);box-shadow:0 0 40px rgba(56,211,159,.10) inset}
+.vs .card.good li{color:var(--mint)}
+.vs .card.good li::before{content:"✓";background:none;color:var(--accent);top:.1em;font-size:12px}
+.banner{margin-top:clamp(20px,3.4vh,32px);text-align:center;border:1px solid var(--line2);border-radius:999px;
+  padding:14px 22px;font-size:clamp(15px,1.9vw,21px);font-weight:700;color:var(--text);
+  background:linear-gradient(90deg,rgba(20,90,67,.5),rgba(56,211,159,.14),rgba(20,90,67,.5))}
+.banner em{font-style:normal;color:var(--accent)}
+
+/* ---------- slide 9 ---------- */
+.trio{display:grid;grid-template-columns:1.25fr 1fr 1.15fr;gap:clamp(12px,1.5vw,20px);margin-top:clamp(18px,3vh,30px)}
+.trio .card h3{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.scen{font-size:clamp(12px,1.25vw,14.5px);color:var(--muted);line-height:1.5;margin-bottom:12px}
+.scen b{color:var(--mint)}
+.ibar{margin-top:10px}
+.ibar .lab{display:flex;justify-content:space-between;font-size:clamp(11px,1.15vw,13px);color:var(--mint)}
+.ibar .lab b{font-family:var(--mono);color:var(--text)}
+.ibar .tr{height:7px;border-radius:4px;background:rgba(191,235,216,.1);margin-top:5px;overflow:hidden}
+.ibar .tr i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--secondary),var(--accent));
+  transition:width 1s var(--ease);transition-delay:calc(var(--d,0)*1s)}
+.slide.active .ibar .tr i{width:var(--w)}
+.fn{font-size:10.5px;color:var(--muted);margin-top:12px;line-height:1.5;font-family:var(--mono)}
+.rk{display:grid;grid-template-columns:1fr 18px 1fr;gap:6px;align-items:center;margin-top:9px;
+  font-size:clamp(11px,1.15vw,13px);line-height:1.35}
+.rk .r{color:var(--mint)}
+.rk .r::before{content:"●";color:var(--amber);margin-right:7px;font-size:9px}
+.rk.op .r::before{content:"▲";color:var(--accent)}
+.rk.op .r{color:var(--accent)}
+.rk .a{color:var(--accent)}
+.rk .m{color:var(--muted)}
+.easy{margin-top:12px;border-top:1px dashed var(--line);padding-top:11px;font-size:clamp(12px,1.3vw,14.5px);color:var(--mint)}
+.easy b{color:var(--accent)}
+
+/* ---------- slide 10 ---------- */
+.tl{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(10px,1.4vw,18px);margin-top:clamp(24px,4vh,40px);position:relative}
+.tl.tl5{grid-template-columns:repeat(5,1fr)}
+.tl::before{content:"";position:absolute;left:3%;right:3%;top:7px;height:2px;
+  background:linear-gradient(90deg,var(--secondary),var(--accent))}
+.ms{position:relative;padding-top:26px}
+.ms::before{content:"";position:absolute;top:0;left:0;width:15px;height:15px;border-radius:50%;
+  background:var(--bg);border:3px solid var(--accent);box-shadow:0 0 12px rgba(56,211,159,.6)}
+.ms i{font-style:normal;font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--accent);text-transform:uppercase}
+.ms h4{font-size:clamp(14px,1.6vw,19px);margin:6px 0 4px;letter-spacing:-.01em}
+.ms p{font-size:clamp(11.5px,1.2vw,13.5px);color:var(--muted);line-height:1.5}
+.closing{display:flex;align-items:center;gap:clamp(16px,2.6vw,34px);margin-top:clamp(26px,4.4vh,46px);flex-wrap:wrap}
+.closing .wiz{width:clamp(86px,9vw,128px)}
+.crits{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.crits .chip{font-size:10.5px;padding:6px 11px}
+.crits .chip::before{content:"✓ ";color:var(--accent);font-weight:700}
+
+/* ---------- chrome ---------- */
+#bar{position:fixed;top:0;left:0;height:3px;width:0;z-index:60;
+  background:linear-gradient(90deg,var(--secondary),var(--accent));box-shadow:0 0 10px rgba(56,211,159,.7);
+  transition:width .45s var(--ease)}
+.brand{position:fixed;left:clamp(14px,2vw,26px);bottom:clamp(12px,2vh,20px);z-index:60;
+  display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:.06em;font-size:14px;color:var(--mint)}
+.brand .wiz{width:30px;filter:none}
+.counter{position:fixed;right:clamp(14px,2vw,26px);bottom:clamp(12px,2vh,20px);z-index:60;
+  font-family:var(--mono);font-size:12px;color:var(--muted)}
+.counter b{color:var(--accent)}
+.dots{position:fixed;left:50%;transform:translateX(-50%);bottom:clamp(12px,2vh,20px);z-index:60;display:flex;gap:8px}
+.dots button{width:8px;height:8px;border-radius:50%;border:1px solid var(--line2);background:transparent;cursor:pointer;padding:0}
+.dots button.on{background:var(--accent);box-shadow:0 0 8px rgba(56,211,159,.8);border-color:var(--accent)}
+.dots button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.notes{position:fixed;left:50%;transform:translate(-50%,115%);bottom:0;z-index:70;width:min(960px,94vw);
+  background:rgba(4,21,15,.96);border:1px solid var(--line2);border-bottom:none;border-radius:16px 16px 0 0;
+  padding:16px 22px 18px;transition:transform .4s var(--ease);backdrop-filter:blur(10px);
+  max-height:44vh;overflow:auto}
+.notes.open{transform:translate(-50%,0)}
+.notes h5{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);
+  display:flex;justify-content:space-between;margin-bottom:10px}
+.nline{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;margin-top:8px;
+  font-size:13.5px;line-height:1.5;color:var(--mint)}
+.nline .who{font-family:var(--mono);font-size:10.5px;font-weight:700;text-align:center;border-radius:6px;padding:3px 0}
+.nline .who.Z{background:var(--accent);color:var(--ink)}
+.nline .who.O{background:var(--secondary);color:var(--text)}
+.nline .who.T{background:transparent;color:var(--amber);border:1px dashed var(--amber)}
+
+.help{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(4,21,15,.7);backdrop-filter:blur(4px)}
+.help.open{display:flex}
+.help .card{width:min(420px,90vw)}
+.help table{width:100%;border-collapse:collapse;font-size:13.5px}
+.help td{padding:7px 4px;color:var(--mint);border-bottom:1px solid rgba(56,211,159,.08)}
+.help td:first-child{font-family:var(--mono);color:var(--accent);width:120px}
+
+@media (max-width:860px){
+  body{overflow:hidden}
+  .slide{align-items:flex-start;overflow-y:auto;display:block;padding-top:64px}
+  .hero,.matters,.duo,.vs,.tri,.trio{grid-template-columns:1fr}
+  .tri,.steps,.tl{grid-template-columns:1fr 1fr}
+  .prow{flex-wrap:wrap}
+  .prow::before,.prow .pulse{display:none}
+  .node{flex:1 1 44%}
+  .ghost{display:none}
+  .tblwrap{overflow-x:auto}
+  .tbl{min-width:640px}
+  .layer{grid-template-columns:1fr}
+  .dots{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+  .slide.active .type{width:71ch;animation:none;border-right:none}
+}
+</style>
+</head>
+<body>
+<!-- ====== mascot symbol (recreated from team reference, emerald palette) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="cloakGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E7A5C"/><stop offset="1" stop-color="#0B3D2E"/>
+    </linearGradient>
+    <linearGradient id="hatGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2AA67B"/><stop offset="1" stop-color="#145A43"/>
+    </linearGradient>
+    <symbol id="oz-wiz" viewBox="0 0 260 300">
+      <g stroke="#04150F" stroke-linejoin="round" stroke-linecap="round">
+        <rect x="120" y="262" width="20" height="16" rx="4" fill="#04150F" stroke-width="0"/>
+        <rect x="94" y="276" width="72" height="11" rx="5.5" fill="#04150F" stroke-width="0"/>
+        <path d="M48 226 L212 226 L234 266 L26 266 Z" fill="#0E2F25" stroke-width="8"/>
+        <g stroke="#CDEBDD" stroke-width="4.5" fill="none">
+          <line x1="89" y1="226" x2="78" y2="266"/><line x1="130" y1="226" x2="130" y2="266"/>
+          <line x1="171" y1="226" x2="182" y2="266"/><line x1="37" y1="246" x2="223" y2="246"/>
+        </g>
+      </g>
+      <ellipse cx="128" cy="231" rx="55" ry="8" fill="#04150F" opacity="0.3"/>
+      <path d="M96 132 C92 168 84 204 75 228 C73 237 79 242 88 240 C99 237 112 243 124 240 C136 237 149 243 161 240 C171 238 178 234 176 226 C169 202 164 168 160 132 C158 114 146 104 128 104 C110 104 98 114 96 132 Z" fill="url(#cloakGrad)" stroke="#04150F" stroke-width="8" stroke-linejoin="round"/>
+      <path d="M152 134 C168 138 176 150 170 162 C166 170 156 172 148 166 L146 142 Z" fill="url(#cloakGrad)" stroke="#04150F" stroke-width="7" stroke-linejoin="round"/>
+      <circle cx="156" cy="166" r="10" fill="#F4E0BE" stroke="#04150F" stroke-width="6"/>
+      <path d="M102 58 C107 38 115 20 126 10 C129 4 138 2 146 7 C151 11 148 17 141 15 C135 13 132 18 133 25 C136 36 146 46 156 58 Z" fill="url(#hatGrad)" stroke="#04150F" stroke-width="8" stroke-linejoin="round"/>
+      <circle cx="128" cy="80" r="27" fill="#F4E0BE" stroke="#04150F" stroke-width="7"/>
+      <circle cx="118" cy="79" r="3.4" fill="#04150F"/><circle cx="138" cy="79" r="3.4" fill="#04150F"/>
+      <circle cx="111" cy="86" r="4" fill="#E5A98C" opacity="0.55"/><circle cx="145" cy="86" r="4" fill="#E5A98C" opacity="0.55"/>
+      <path d="M100 86 C93 102 97 120 111 127 C119 131 126 133 128 144 C130 133 137 131 145 127 C159 120 163 102 156 86 C149 94 139 98 128 98 C117 98 107 94 100 86 Z" fill="#D8F5E7" stroke="#04150F" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M112 95 Q120 103 128 96 Q136 103 144 95" fill="none" stroke="#04150F" stroke-width="5" stroke-linecap="round"/>
+      <path d="M86 54 Q128 40 170 54 Q174 65 164 65 L92 65 Q82 65 86 54 Z" fill="#145A43" stroke="#04150F" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M102 146 L70 102 Q63 94 70 86 L82 76 Q90 70 96 78 L116 116 Z" fill="url(#cloakGrad)" stroke="#04150F" stroke-width="7" stroke-linejoin="round"/>
+      <circle cx="66" cy="76" r="11" fill="#F4E0BE" stroke="#04150F" stroke-width="6"/>
+      <line x1="60" y1="68" x2="36" y2="30" stroke="#04150F" stroke-width="11" stroke-linecap="round"/>
+      <line x1="60" y1="68" x2="36" y2="30" stroke="#F7F8F7" stroke-width="5" stroke-linecap="round"/>
+      <circle class="glowpulse" cx="30" cy="20" r="23" fill="#38D39F" opacity="0.22"/>
+      <polygon points="30,5 26.5,15.2 15.7,15.4 24.3,21.9 21.2,32.1 30,26 38.8,32.1 35.7,21.9 44.3,15.4 33.5,15.2" fill="#7FF7C8" stroke="#04150F" stroke-width="5" stroke-linejoin="round"/>
+      <g stroke="#38D39F" stroke-width="4" stroke-linecap="round">
+        <line x1="54" y1="8" x2="60" y2="2"/><line x1="56" y1="26" x2="63" y2="28"/>
+        <line x1="8" y1="38" x2="3" y2="43"/><line x1="12" y1="6" x2="8" y2="1"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<div id="bar"></div>
+
+<main class="deck" id="deck">
+
+<!-- ============ SLIDE 1 · TITLE ============ -->
+<section class="slide" aria-label="Title">
+  <div class="badge mono">Oxford AI for Good Hackathon</div>
+  <div class="wrap hero">
+    <div class="herowiz" data-a style="--d:.1">
+      <svg class="wiz" viewBox="0 0 260 300"><use href="#oz-wiz"/></svg>
+      <svg class="heropanel" viewBox="0 0 320 150" aria-hidden="true">
+        <defs>
+          <linearGradient id="hpGlass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1B5C46"/><stop offset="1" stop-color="#0A2A20"/>
+          </linearGradient>
+          <radialGradient id="hpGlow" cx="50%" cy="40%" r="60%">
+            <stop offset="0" stop-color="#38D39F" stop-opacity=".5"/>
+            <stop offset="1" stop-color="#38D39F" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="160" cy="92" rx="150" ry="44" fill="url(#hpGlow)"/>
+        <g transform="translate(160 78) rotate(0)">
+          <path d="M-118 -26 L118 -26 L150 44 L-150 44 Z" fill="url(#hpGlass)" stroke="#04150F" stroke-width="6" stroke-linejoin="round"/>
+          <g stroke="#7FF7C8" stroke-width="3" opacity=".9">
+            <line x1="-86" y1="-26" x2="-110" y2="44"/><line x1="-43" y1="-26" x2="-55" y2="44"/>
+            <line x1="0" y1="-26" x2="0" y2="44"/><line x1="43" y1="-26" x2="55" y2="44"/>
+            <line x1="86" y1="-26" x2="110" y2="44"/>
+            <line x1="-134" y1="9" x2="134" y2="9"/>
+          </g>
+          <path d="M-118 -26 L118 -26 L150 44 L-150 44 Z" fill="none" stroke="#38D39F" stroke-width="2" opacity=".55"/>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <div class="kicker" data-a>AI for the energy transition</div>
+      <h1 class="display" data-a style="--d:.12;font-size:clamp(72px,11vw,150px)">OZ<em>.</em></h1>
+      <p class="heroTag" data-a style="--d:.24">The AI Copilot for <em style="font-style:normal;color:var(--accent)">Commercial Solar</em> Deployment.</p>
+      <div class="heroMeta" data-a style="--d:.36">
+        <span class="chip hot">Olly Pugh</span><span class="chip hot">Zara Pashov</span>
+      </div>
+    </div>
+  </div>
+  <div class="ghost">OZ</div>
+</section>
+
+<!-- ============ SLIDE 2 · PROBLEM ============ -->
+<section class="slide" aria-label="Problem">
+  <div class="wrap">
+    <div class="kicker" data-a>The problem · UK-wide</div>
+    <h2 class="display" data-a style="--d:.1">Commercial rooftops are the UK's<br>most <em>wasted</em> solar asset.</h2>
+    <div class="tri">
+      <div class="card" data-a style="--d:.2">
+        <h3><span class="ic"></span>Installers</h3>
+        <ul>
+          <li>Spare installation capacity sits idle</li>
+          <li>Days lost manually hunting for leads</li>
+          <li>Cold calls and bought lists convert poorly</li>
+        </ul>
+      </div>
+      <div class="card" data-a style="--d:.32">
+        <h3><span class="ic"></span>Businesses</h3>
+        <ul>
+          <li>Don't know they're strong solar candidates</li>
+          <li>Underestimate savings; lack in-house expertise</li>
+          <li>Most are never contacted at all</li>
+          <li>Protect against high electricity costs</li>
+        </ul>
+      </div>
+      <div class="card" data-a style="--d:.44">
+        <h3><span class="ic"></span>The grid</h3>
+        <ul>
+          <li>Reduces peak national demand</li>
+          <li>Eases transmission congestion</li>
+          <li>Cheap distributed generation goes unbuilt</li>
+        </ul>
+      </div>
+    </div>
+    <p class="punch" data-a style="--d:.58">This is a failure of <b>discovery</b> — not of technology, economics, or demand.</p>
+  </div>
+  <div class="ghost">02</div>
+</section>
+
+<!-- ============ SLIDE 3 · WHY IT MATTERS ============ -->
+<section class="slide" aria-label="Why it matters">
+  <div class="wrap matters">
+    <svg class="donut" viewBox="0 0 200 200" data-a>
+      <circle class="track" cx="100" cy="100" r="86"/>
+      <circle class="arc" cx="100" cy="100" r="86" transform="rotate(-90 100 100)"/>
+      <text x="100" y="96" text-anchor="middle" font-size="44">5%</text>
+      <text x="100" y="122" text-anchor="middle" font-size="11" fill="#8FB4A4" font-family="ui-monospace,monospace">OF ROOFTOP SPACE</text>
+    </svg>
+    <div>
+      <div class="kicker" data-a style="--d:.08">Why it matters</div>
+      <h2 class="display" data-a style="--d:.16;margin-top:14px">Using just 5% of UK commercial rooftop space for solar could save</h2>
+      <div class="bignum" data-a style="--d:.3">£12.6<span>&nbsp;billion annually</span></div>
+      <div class="chips" data-a style="--d:.46;margin-top:22px">
+        <span class="chip">↓ Carbon emissions</span><span class="chip">↓ Business energy costs</span>
+        <span class="chip">↑ Renewable generation</span><span class="chip">↓ Grid pressure</span>
+        <span class="chip">↑ Energy resilience</span>
+      </div>
+      <p class="lede" data-a style="--d:.58;margin-top:18px">Every additional installation is a measurable environmental win. OZ doesn't just help installers — it accelerates the energy transition.</p>
+    </div>
+  </div>
+  <div class="ghost">03</div>
+</section>
+
+<!-- ============ SLIDE 4 · SOLUTION ============ -->
+<section class="slide" aria-label="Solution">
+  <div class="wrap">
+    <div class="kicker" data-a>The solution</div>
+    <h2 class="display" data-a style="--d:.1">One sentence in.<br>A <em>qualified pipeline</em> out.</h2>
+    <div class="duo">
+      <div class="card" data-a style="--d:.22">
+        <h3><span class="ic"></span>The installer types</h3>
+        <p class="prompt">Find the best commercial solar opportunities within 20 miles of Oxford.</p>
+        <p class="lede" style="margin-top:12px;font-size:14px">OZ is an <b style="color:var(--accent)">agentic AI workflow</b> — it plans, researches, models and ranks autonomously.</p>
+      </div>
+      <div class="card" data-a style="--d:.34">
+        <h3><span class="ic"></span>The installer receives</h3>
+        <ul>
+          <li>Ranked opportunities, best first</li>
+          <li>Estimated system size per roof</li>
+          <li>Estimated annual generation &amp; savings</li>
+          <li>Confidence score on every estimate</li>
+          <li>A prioritised outreach list, report-ready</li>
+        </ul>
+      </div>
+    </div>
+    <div class="steps" data-a style="--d:.48">
+      <div class="step"><i>01</i><span>Define catchment area</span></div>
+      <div class="step"><i>02</i><span>Identify C&amp;I properties</span></div>
+      <div class="step"><i>03</i><span>Estimate usable roof area</span></div>
+      <div class="step"><i>04</i><span>Assess solar suitability</span></div>
+      <div class="step"><i>05</i><span>Estimate system size</span></div>
+      <div class="step"><i>06</i><span>Calculate annual generation</span></div>
+      <div class="step"><i>07</i><span>Estimate annual savings</span></div>
+      <div class="step"><i>08</i><span>Predict adoption likelihood</span></div>
+      <div class="step"><i>09</i><span>Rank opportunities</span></div>
+      <div class="step"><i>10</i><span>Generate prospecting report</span></div>
+    </div>
+  </div>
+  <div class="ghost">04</div>
+</section>
+
+<!-- ============ SLIDE 5 · DEMO ============ -->
+<section class="slide" aria-label="Demo">
+  <div class="wrap" style="text-align:center">
+    <div class="kicker" data-a style="justify-content:center">Live demo</div>
+    <h2 class="display" data-a style="--d:.08">See OZ run on Oxford.</h2>
+    <p class="lede" data-a style="--d:.18;margin:18px auto 0;text-align:center">A real OZ run across the Oxford catchment — territory in, ranked commercial opportunities out.</p>
+    <a class="demolaunch" data-a style="--d:.3" href="http://167.172.62.135:5055/demo" target="_blank" rel="noopener">
+      <svg class="wiz" viewBox="0 0 260 300"><use href="#oz-wiz"/></svg>
+      <span class="dl-txt">
+        <i>Click to launch</i>
+        <b>OZ — Oxford demo</b>
+      </span>
+      <span class="dl-go">▶</span>
+    </a>
+    <p class="hint" data-a style="--d:.42;text-align:center">Opens in a new tab · return here for slide 6</p>
+  </div>
+  <div class="ghost">05</div>
+</section>
+
+<!-- ============ SLIDE 6 · HOW THE AI WORKS ============ -->
+<section class="slide" aria-label="How the AI works">
+  <div class="wrap">
+    <div class="kicker" data-a>How the AI works</div>
+    <h2 class="display" data-a style="--d:.08">A 13-agent workflow that<br><em>learns</em> before it ships.</h2>
+    <div class="agentflow" data-a style="--d:.18">
+      <div class="agrid">
+        <div class="node io"><i>INPUT</i><span>Installer prompt</span></div>
+        <div class="anode"><i>01</i><span>Territory intake</span></div>
+        <div class="anode"><i>02</i><span>Data ingestion</span></div>
+        <div class="anode"><i>03</i><span>Geospatial matching</span></div>
+        <div class="anode"><i>04</i><span>Socioeconomic suitability</span></div>
+        <div class="anode"><i>05</i><span>Roof suitability</span></div>
+        <div class="anode"><i>06</i><span>Solar presence &amp; calibration</span></div>
+        <div class="anode"><i>07</i><span>Energy economics</span></div>
+        <div class="anode"><i>08</i><span>Lead scoring</span></div>
+        <div class="anode"><i>09</i><span>Report builder</span></div>
+        <div class="anode"><i>10</i><span>QA &amp; compliance</span></div>
+        <div class="anode learn"><i>11</i><span>Learning agent</span></div>
+        <div class="anode audit"><i>12</i><span>Red-team audit</span></div>
+        <div class="node out"><i>OUTPUT</i><span>Ranked opportunity report</span></div>
+      </div>
+      <div class="loopnote"><span class="loopdot"></span>The <b>learning agent</b> feeds results back to re-teach the workflow for another iteration — then the <b>red-team audit</b> must pass before any report ships.</div>
+    </div>
+    <div class="pipefoot" data-a style="--d:.5">
+      <div class="chips">
+        <span class="chip">Geospatial reasoning</span><span class="chip">Suitability scoring</span>
+        <span class="chip">Prediction</span><span class="chip">Automation</span>
+        <span class="chip">Self-improving loop</span><span class="chip">Report generation</span>
+      </div>
+    </div>
+  </div>
+  <div class="ghost">06</div>
+</section>
+
+<!-- ============ SLIDE 7 · ARCHITECTURE ============ -->
+<section class="slide" aria-label="Technical architecture">
+  <div class="wrap">
+    <div class="kicker" data-a>Technical architecture</div>
+    <h2 class="display" data-a style="--d:.08">Built on real UK data.</h2>
+    <div class="arch">
+      <div class="layer" data-a style="--d:.18">
+        <span class="lt">Data sources</span>
+        <div class="chips">
+          <span class="chip">EPC register</span><span class="chip">LiDAR roof models</span><span class="chip">Ordnance Survey</span>
+          <span class="chip">HM Land Registry</span><span class="chip">Census &amp; socioeconomic</span><span class="chip">PVGIS solar modelling</span>
+        </div>
+      </div>
+      <div class="darr" data-a style="--d:.26">▼</div>
+      <div class="layer" data-a style="--d:.32">
+        <span class="lt">Analysis engines</span>
+        <div class="chips">
+          <span class="chip">Geospatial analysis</span><span class="chip">Roof segmentation</span>
+          <span class="chip">Solar yield modelling</span><span class="chip">Automated suitability scoring</span><span class="chip">Adoption propensity model</span>
+        </div>
+      </div>
+      <div class="darr" data-a style="--d:.4">▼</div>
+      <div class="layer" data-a style="--d:.46">
+        <span class="lt">Orchestration</span>
+        <div class="chips">
+          <span class="chip">Multi-agent orchestrator</span><span class="chip">Planning &amp; routing</span><span class="chip">Validation &amp; confidence scoring</span>
+        </div>
+      </div>
+      <div class="darr" data-a style="--d:.54">▼</div>
+      <div class="layer" data-a style="--d:.6">
+        <span class="lt">Output</span>
+        <div class="chips">
+          <span class="chip hot">Report generation pipeline</span><span class="chip">Ranked list · sizes · savings · confidence</span>
+        </div>
+      </div>
+    </div>
+    <p class="punch archnote" data-a style="--d:.72">Property identification, roof analysis, scoring, energy modelling and reporting — <b>targeted to commercial &amp; industrial buildings</b>.</p>
+  </div>
+  <div class="ghost">07</div>
+</section>
+
+<!-- ============ SLIDE 8 · INNOVATION ============ -->
+<section class="slide" aria-label="Innovation">
+  <div class="wrap">
+    <div class="kicker" data-a>Innovation &amp; competitive advantage</div>
+    <h2 class="display" data-a style="--d:.08">Prospecting today is guesswork.<br>OZ makes it <em>quantified</em>.</h2>
+    <div class="vs">
+      <div class="card bad" data-a style="--d:.2">
+        <h3><span class="ic"></span>Today's process</h3>
+        <ul>
+          <li>Manual searching, roof by roof</li>
+          <li>Random cold calls</li>
+          <li>Low-quality bought lead lists</li>
+          <li>No idea of system size or ROI before contact</li>
+        </ul>
+      </div>
+      <div class="card good" data-a style="--d:.32">
+        <h3><span class="ic"></span>With OZ</h3>
+        <ul>
+          <li>Likely adopters identified automatically</li>
+          <li>Opportunity quantified per building</li>
+          <li>System size and ROI estimated up front</li>
+          <li>Outreach prioritised by adoption likelihood</li>
+          <li>Preliminary modelling for installers done</li>
+        </ul>
+      </div>
+    </div>
+    <div class="banner" data-a style="--d:.48">The first AI-powered <em>commercial solar prospecting copilot</em>.</div>
+  </div>
+  <div class="ghost">08</div>
+</section>
+
+<!-- ============ SLIDE 9 · IMPACT, MARKET FIT, RISKS ============ -->
+<section class="slide" aria-label="Impact, market fit, risks">
+  <div class="wrap">
+    <div class="kicker" data-a>Impact · market fit · risks</div>
+    <h2 class="display" data-a style="--d:.08">Small per installer. <em>Huge</em> in aggregate.</h2>
+    <div class="trio">
+      <div class="card" data-a style="--d:.18">
+        <h3>Impact — illustrative scenario</h3>
+        <p class="scen">If <b>1,000 installers</b> each win just <b>10 extra commercial installs</b> a year through OZ:</p>
+        <div class="ibar"><div class="lab"><span>New solar arrays</span><b>10,000</b></div><div class="tr"><i style="--w:62%;--d:.45"></i></div></div>
+        <div class="ibar"><div class="lab"><span>Added capacity</span><b>~1 GW</b></div><div class="tr"><i style="--w:74%;--d:.58"></i></div></div>
+        <div class="ibar"><div class="lab"><span>Generation per year</span><b>~950 GWh</b></div><div class="tr"><i style="--w:86%;--d:.71"></i></div></div>
+        <div class="ibar"><div class="lab"><span>CO₂e avoided per year</span><b>~190,000 t</b></div><div class="tr"><i style="--w:80%;--d:.84"></i></div></div>
+        <div class="ibar"><div class="lab"><span>Business savings per year</span><b>~£190 m</b></div><div class="tr"><i style="--w:95%;--d:.97"></i></div></div>
+        <p class="fn">Illustrative. Assumes 100 kWp avg system · 950 kWh/kWp · 0.2 kgCO₂e/kWh · 20p/kWh offset.</p>
+      </div>
+      <div class="card" data-a style="--d:.3">
+        <h3>Market fit</h3>
+        <p class="scen"><b>Primary user:</b> commercial solar installers.</p>
+        <div class="chips">
+          <span class="chip">Energy consultants</span><span class="chip">Local authorities</span>
+          <span class="chip">Sustainability teams</span><span class="chip">Portfolio managers</span>
+        </div>
+        <p class="easy"><b>Adoption is trivial.</b> No hardware. No integration. Type a location → receive opportunities.</p>
+      </div>
+      <div class="card" data-a style="--d:.42">
+        <h3>Opportunities &amp; threats</h3>
+        <div class="rk"><span class="r">Data quality</span><span class="m">→</span><span class="a">Confidence score on every estimate</span></div>
+        <div class="rk"><span class="r">Prediction uncertainty</span><span class="m">→</span><span class="a">Explainable rankings, not black boxes</span></div>
+        <div class="rk"><span class="r">Planning constraints</span><span class="m">→</span><span class="a">Flagged per site · human review</span></div>
+        <div class="rk"><span class="r">User trust</span><span class="m">→</span><span class="a">Installer-in-the-loop · continuous model improvement</span></div>
+        <div class="rk"><span class="r">No public record of commercial buildings with solar</span><span class="m">→</span><span class="a">Solar-presence agent infers it; installer feedback verifies</span></div>
+        <div class="rk"><span class="r">No calibration data yet</span><span class="m">→</span><span class="a">Pilot feedback loop builds it from real installs</span></div>
+        <div class="rk op"><span class="r">Opportunity</span><span class="m">→</span><span class="a">The method extends to the whole world</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="ghost">09</div>
+</section>
+
+<!-- ============ SLIDE 10 · VISION & NEXT STEPS ============ -->
+<section class="slide" aria-label="Vision and next steps">
+  <div class="wrap">
+    <div class="kicker" data-a>Vision &amp; next steps</div>
+    <h2 class="display" data-a style="--d:.08">Every viable commercial roof<br>in the UK — <em>found</em>.</h2>
+    <div class="tl tl5">
+      <div class="ms" data-a style="--d:.2"><i>1 month</i><h4>Local pilot</h4><p>Pilot with installers in Oxfordshire; validate rankings against won work.</p></div>
+      <div class="ms" data-a style="--d:.3"><i>Calibration</i><h4>Feedback loop</h4><p>Installers tell us who actually installed; we feed it back so predictions of who's most likely to install keep improving.</p></div>
+      <div class="ms" data-a style="--d:.4"><i>3 months</i><h4>Multi-region</h4><p>Expand to multiple UK regions; tune the propensity model per area.</p></div>
+      <div class="ms" data-a style="--d:.5"><i>6 months</i><h4>Commercial beta</h4><p>Paid beta with reporting, CRM export and territory management.</p></div>
+      <div class="ms" data-a style="--d:.6"><i>12 months</i><h4>Nationwide</h4><p>Full UK rollout across installers, consultants and local authorities.</p></div>
+    </div>
+    <div class="closing" data-a style="--d:.74">
+      <svg class="wiz" viewBox="0 0 260 300"><use href="#oz-wiz"/></svg>
+      <div>
+        <p class="punch" style="margin-top:0">More installs. Lower bills. Faster decarbonisation.</p>
+      </div>
+    </div>
+  </div>
+  <div class="ghost">10</div>
+</section>
+
+</main>
+
+<!-- ============ chrome ============ -->
+<div class="brand"><svg class="wiz" viewBox="0 0 260 300"><use href="#oz-wiz"/></svg>OZ</div>
+<nav class="dots" id="dots" aria-label="Slides"></nav>
+<div class="counter" id="counter"></div>
+
+<aside class="notes" id="notes" aria-label="Presenter notes">
+  <h5><span id="ntitle"></span><span id="ntime"></span></h5>
+  <div id="nbody"></div>
+</aside>
+
+<div class="help" id="help">
+  <div class="card">
+    <h3 style="margin-bottom:12px"><span class="ic" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);margin-right:8px"></span>Keyboard shortcuts</h3>
+    <table>
+      <tr><td>← / →</td><td>Previous / next slide</td></tr>
+      <tr><td>Space</td><td>Next slide</td></tr>
+      <tr><td>1–9, 0</td><td>Jump to slide (0 = slide 10)</td></tr>
+      <tr><td>Home / End</td><td>First / last slide</td></tr>
+      <tr><td>N</td><td>Toggle presenter notes</td></tr>
+      <tr><td>F</td><td>Toggle fullscreen</td></tr>
+      <tr><td>?</td><td>This help · Esc closes</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var N = slides.length, cur = 0;
+  var bar = document.getElementById('bar'),
+      counter = document.getElementById('counter'),
+      dots = document.getElementById('dots'),
+      notes = document.getElementById('notes'),
+      ntitle = document.getElementById('ntitle'),
+      ntime = document.getElementById('ntime'),
+      nbody = document.getElementById('nbody'),
+      help = document.getElementById('help');
+
+  // ---- presenter notes (Z = Zara, O = Olly, T = transition cue) ----
+  var NOTES = [
+    {title:'Title', time:'0:00 – 0:20', lines:[
+      ['Z',"\u201CHi, we're Olly Pugh and Zara Pashov, and this is OZ \u2014 the AI copilot for commercial solar deployment.\u201D"],
+      ['Z','One-liner: \u201CWe help solar installers find the commercial buildings most likely to go solar \u2014 automatically.\u201D'],
+      ['T','\u201CLet me show you why this matters.\u201D \u2192 advance.']]},
+    {title:'Problem', time:'0:20 – 0:55', lines:[
+      ['Z','Installers have spare capacity but lose days manually hunting leads, cold calling, buying junk lists.'],
+      ['Z','Businesses don\u2019t know they\u2019re strong candidates \u2014 most are never even contacted.'],
+      ['Z','Net effect: installers lose revenue, businesses miss savings, UK deployment stalls.'],
+      ['T','Hand to Olly for the size of the prize.']]},
+    {title:'Why it matters', time:'0:55 – 1:25', lines:[
+      ['O','Land the headline slowly: just 5% of commercial roof space \u2192 \u00A312.6 billion saved every year.'],
+      ['O','IMPORTANT: have the source for the \u00A312.6bn figure ready \u2014 judges will probe it in Q&A.'],
+      ['O','Frame the chips: this is emissions, costs, grid pressure and resilience \u2014 not just installer revenue.']]},
+    {title:'Solution', time:'1:25 – 1:55', lines:[
+      ['O','\u201COZ is an agentic AI workflow.\u201D The installer types one sentence; OZ does the other ten steps.'],
+      ['O','Walk the right card: ranked sites, system sizes, savings, confidence scores, outreach order.'],
+      ['T','\u201CZara will show you what that actually looks like.\u201D']]},
+    {title:'Demo / user journey', time:'1:55 – 2:35', lines:[
+      ['Z','Click the launch card to open the pre-made OZ Oxford demo in a new tab.'],
+      ['Z','Narrate the run: territory in \u2192 ranked commercial opportunities out, with sizes, savings and confidence.'],
+      ['Z','When the demo finishes, close the tab and press \u2192 to return here for slide 6.'],
+      ['T','Hand to Olly: \u201CUnder the hood, this is real agentic AI.\u201D']]},
+    {title:'How the AI works', time:'2:35 – 3:10', lines:[
+      ['O','Thirteen specialised agents, from territory intake through to red-team audit.'],
+      ['O','Key point: the learning agent feeds results back to re-teach the workflow, then the red-team audit must pass before any report ships.'],
+      ['O','Stress the chips: geospatial reasoning, scoring, prediction, a self-improving loop.']]},
+    {title:'Architecture', time:'3:10 – 3:35', lines:[
+      ['O','Real open UK data: EPC, LiDAR, Ordnance Survey, Land Registry, census, PVGIS yield modelling.'],
+      ['O','Credibility line: adapted from our existing OZ pipeline, re-targeted from residential to commercial.']]},
+    {title:'Innovation', time:'3:35 – 4:00', lines:[
+      ['Z','Contrast hard: today is manual search + random cold calls + bought lists, with zero ROI visibility.'],
+      ['Z','Positioning: \u201Cthe first AI-powered commercial solar prospecting copilot.\u201D Verify the competitor landscape before asserting \u201Cfirst\u201D on stage.']]},
+    {title:'Impact, market fit, risks', time:'4:00 – 4:35', lines:[
+      ['Z','Scenario: 1,000 installers \u00D7 10 extra installs \u2192 ~10,000 arrays, ~1 GW. Say clearly it\u2019s illustrative \u2014 assumptions are on the slide.'],
+      ['O','Market fit: no hardware, no integration \u2014 type a location, get a pipeline. Easy adoption = fast impact.'],
+      ['O','Pre-empt judges on threats: every risk has a shipped mitigation \u2014 confidence scores, explainable rankings, human review.']]},
+    {title:'Vision & next steps', time:'4:35 – 5:00', lines:[
+      ['Z','Roadmap: pilot in 1 month, then a calibration feedback loop, multi-region at 3, paid beta at 6, nationwide at 12.'],
+      ['Z','Explain calibration: installers tell us who actually installed; that feedback sharpens our predictions.'],
+      ['O','Close together: \u201CMore installs. Lower bills. Faster decarbonisation.\u201D']]}
+  ];
+
+  // dots
+  slides.forEach(function(_, i){
+    var b = document.createElement('button');
+    b.setAttribute('aria-label','Go to slide ' + (i+1));
+    b.addEventListener('click', function(){ go(i); });
+    dots.appendChild(b);
+  });
+
+  function renderNotes(i){
+    var n = NOTES[i];
+    ntitle.textContent = 'Slide ' + (i+1) + ' \u00B7 ' + n.title;
+    ntime.textContent = n.time;
+    nbody.innerHTML = '';
+    n.lines.forEach(function(l){
+      var row = document.createElement('div'); row.className = 'nline';
+      var who = document.createElement('span');
+      who.className = 'who ' + (l[0] === '\u2192' || l[0] === 'T' ? 'T' : l[0]);
+      who.textContent = (l[0] === 'T' ? '\u2192' : l[0]);
+      var txt = document.createElement('span'); txt.textContent = l[1];
+      row.appendChild(who); row.appendChild(txt); nbody.appendChild(row);
+    });
+  }
+
+  function go(i){
+    if (i < 0 || i >= N) return;
+    cur = i;
+    slides.forEach(function(s, j){
+      s.classList.toggle('active', j === i);
+      s.classList.toggle('is-prev', j < i);
+      s.setAttribute('aria-hidden', j === i ? 'false' : 'true');
+    });
+    bar.style.width = ((i+1)/N*100) + '%';
+    counter.innerHTML = '<b>' + (i+1) + '</b> / ' + N + ' &nbsp;\u00B7&nbsp; N notes \u00B7 ? help';
+    Array.prototype.forEach.call(dots.children, function(d, j){ d.classList.toggle('on', j === i); });
+    renderNotes(i);
+    if (history.replaceState) history.replaceState(null, '', '#' + (i+1));
+  }
+
+  function next(){ go(Math.min(cur+1, N-1)); }
+  function prev(){ go(Math.max(cur-1, 0)); }
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape'){ help.classList.remove('open'); return; }
+    if (e.key === '?' ){ help.classList.toggle('open'); return; }
+    if (help.classList.contains('open')) return;
+    switch(e.key){
+      case 'ArrowRight': case 'PageDown': next(); break;
+      case 'ArrowLeft':  case 'PageUp':   prev(); break;
+      case ' ': e.preventDefault(); e.shiftKey ? prev() : next(); break;
+      case 'Home': go(0); break;
+      case 'End':  go(N-1); break;
+      case 'n': case 'N': notes.classList.toggle('open'); break;
+      case 'f': case 'F':
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+        break;
+      default:
+        if (/^[0-9]$/.test(e.key)) go(e.key === '0' ? 9 : (+e.key - 1));
+    }
+  });
+
+  help.addEventListener('click', function(e){ if (e.target === help) help.classList.remove('open'); });
+
+  // touch swipe
+  var tx = null, ty = null;
+  document.addEventListener('touchstart', function(e){ tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, {passive:true});
+  document.addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5){ dx < 0 ? next() : prev(); }
+    tx = ty = null;
+  }, {passive:true});
+
+  var h = parseInt((location.hash || '').replace('#',''), 10);
+  go(!isNaN(h) && h >= 1 && h <= N ? h-1 : 0);
+})();
+</script>
+</body>
+</html>
